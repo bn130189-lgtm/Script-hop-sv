@@ -1,0 +1,862 @@
+-- =========================================================
+-- ATRAS | BINN
+-- AUTO CHEST V5
+-- =========================================================
+
+-- STOP BẢN CŨ NẾU ĐANG CHẠY
+if getgenv().ATRAS_BINN_STOP then
+    getgenv().ATRAS_BINN_STOP()
+end
+
+getgenv().ATRAS_BINN_STOPPED = false
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- =========================================================
+-- CONFIG
+-- =========================================================
+
+local DISCORD = "https://discord.gg/8epmx7Acn"
+
+local AutoChest = false
+local CurrentTween = nil
+local CurrentTarget = nil
+
+local VisitedChests = {}
+local FailedChests = {}
+
+local SPEED = 180
+local HEIGHT_OFFSET = 3
+
+-- =========================================================
+-- GUI
+-- =========================================================
+
+pcall(function()
+    CoreGui:FindFirstChild("ATRAS_BINN_UI"):Destroy()
+end)
+
+local ParentUI
+
+pcall(function()
+    ParentUI = gethui()
+end)
+
+if not ParentUI then
+    ParentUI = CoreGui
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ATRAS_BINN_UI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = ParentUI
+
+-- =========================================================
+-- RGB
+-- =========================================================
+
+local function RGB()
+    return Color3.fromHSV((tick() % 5) / 5, 1, 1)
+end
+
+-- =========================================================
+-- ICON
+-- =========================================================
+
+local OpenButton = Instance.new("TextButton")
+OpenButton.Name = "OpenButton"
+OpenButton.Size = UDim2.new(0, 48, 0, 48)
+OpenButton.Position = UDim2.new(0, 10, 0.45, 0)
+OpenButton.BackgroundColor3 = Color3.fromRGB(15,15,15)
+OpenButton.Text = "A"
+OpenButton.TextColor3 = Color3.new(1,1,1)
+OpenButton.TextSize = 24
+OpenButton.Font = Enum.Font.GothamBold
+OpenButton.BorderSizePixel = 0
+OpenButton.Parent = ScreenGui
+
+local OpenCorner = Instance.new("UICorner")
+OpenCorner.CornerRadius = UDim.new(1,0)
+OpenCorner.Parent = OpenButton
+
+local OpenStroke = Instance.new("UIStroke")
+OpenStroke.Thickness = 2
+OpenStroke.Parent = OpenButton
+
+-- =========================================================
+-- MAIN MENU
+-- =========================================================
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 260, 0, 235)
+Main.Position = UDim2.new(0, 65, 0.35, 0)
+Main.BackgroundColor3 = Color3.fromRGB(12,12,18)
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0,14)
+MainCorner.Parent = Main
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Thickness = 2
+MainStroke.Parent = Main
+
+-- =========================================================
+-- TITLE
+-- =========================================================
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,45)
+Title.BackgroundTransparency = 1
+Title.Text = "ATRAS | BINN"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.TextSize = 21
+Title.Font = Enum.Font.GothamBold
+Title.Parent = Main
+
+-- =========================================================
+-- STATUS
+-- =========================================================
+
+local Status = Instance.new("TextLabel")
+Status.Position = UDim2.new(0,15,0,48)
+Status.Size = UDim2.new(1,-30,0,35)
+Status.BackgroundTransparency = 1
+Status.Text = "Status: READY"
+Status.TextColor3 = Color3.fromRGB(180,180,180)
+Status.TextSize = 13
+Status.Font = Enum.Font.Gotham
+Status.TextXAlignment = Enum.TextXAlignment.Left
+Status.Parent = Main
+
+-- =========================================================
+-- AUTO CHEST BUTTON
+-- =========================================================
+
+local ChestButton = Instance.new("TextButton")
+ChestButton.Position = UDim2.new(0,15,0,90)
+ChestButton.Size = UDim2.new(1,-30,0,42)
+ChestButton.BackgroundColor3 = Color3.fromRGB(25,25,30)
+ChestButton.Text = "AUTO CHEST : OFF"
+ChestButton.TextColor3 = Color3.new(1,1,1)
+ChestButton.TextSize = 15
+ChestButton.Font = Enum.Font.GothamBold
+ChestButton.BorderSizePixel = 0
+ChestButton.Parent = Main
+
+local ChestCorner = Instance.new("UICorner")
+ChestCorner.CornerRadius = UDim.new(0,10)
+ChestCorner.Parent = ChestButton
+
+-- =========================================================
+-- COPY DISCORD
+-- =========================================================
+
+local DiscordButton = Instance.new("TextButton")
+DiscordButton.Position = UDim2.new(0,15,0,140)
+DiscordButton.Size = UDim2.new(1,-30,0,38)
+DiscordButton.BackgroundColor3 = Color3.fromRGB(25,25,30)
+DiscordButton.Text = "COPY DISCORD"
+DiscordButton.TextColor3 = Color3.new(1,1,1)
+DiscordButton.TextSize = 14
+DiscordButton.Font = Enum.Font.GothamBold
+DiscordButton.BorderSizePixel = 0
+DiscordButton.Parent = Main
+
+local DiscordCorner = Instance.new("UICorner")
+DiscordCorner.CornerRadius = UDim.new(0,10)
+DiscordCorner.Parent = DiscordButton
+
+-- =========================================================
+-- CHEST COUNT
+-- =========================================================
+
+local CountLabel = Instance.new("TextLabel")
+CountLabel.Position = UDim2.new(0,15,0,185)
+CountLabel.Size = UDim2.new(1,-30,0,30)
+CountLabel.BackgroundTransparency = 1
+CountLabel.Text = "Chest: 0"
+CountLabel.TextColor3 = Color3.fromRGB(170,170,170)
+CountLabel.TextSize = 13
+CountLabel.Font = Enum.Font.Gotham
+CountLabel.TextXAlignment = Enum.TextXAlignment.Left
+CountLabel.Parent = Main
+
+-- =========================================================
+-- GUI TOGGLE
+-- =========================================================
+
+OpenButton.MouseButton1Click:Connect(function()
+    Main.Visible = not Main.Visible
+end)
+
+-- =========================================================
+-- DISCORD
+-- =========================================================
+
+DiscordButton.MouseButton1Click:Connect(function()
+
+    if setclipboard then
+        setclipboard(DISCORD)
+
+        DiscordButton.Text = "COPIED ✓"
+
+        task.delay(1.5,function()
+            if DiscordButton then
+                DiscordButton.Text = "COPY DISCORD"
+            end
+        end)
+    else
+        DiscordButton.Text = "KHÔNG HỖ TRỢ CLIPBOARD"
+
+        task.delay(2,function()
+            if DiscordButton then
+                DiscordButton.Text = "COPY DISCORD"
+            end
+        end)
+    end
+
+end)
+
+-- =========================================================
+-- CHARACTER
+-- =========================================================
+
+local function GetCharacter()
+
+    local Character = LocalPlayer.Character
+
+    if not Character or not Character.Parent then
+        Character = LocalPlayer.CharacterAdded:Wait()
+    end
+
+    return Character
+end
+
+local function GetRoot()
+
+    local Character = GetCharacter()
+
+    return Character:FindFirstChild("HumanoidRootPart")
+end
+
+-- =========================================================
+-- CHEST POSITION
+-- =========================================================
+
+local function GetChestPosition(Chest)
+
+    if not Chest or not Chest.Parent then
+        return nil
+    end
+
+    local success, result = pcall(function()
+
+        if Chest:IsA("BasePart") then
+            return Chest.Position
+        end
+
+        if Chest:IsA("Model") then
+            return Chest:GetPivot().Position
+        end
+
+        return nil
+
+    end)
+
+    if success then
+        return result
+    end
+
+    return nil
+end
+
+-- =========================================================
+-- TÌM PART CÓ TOUCHINTEREST
+-- =========================================================
+
+local function GetTouchPart(Chest)
+
+    if not Chest or not Chest.Parent then
+        return nil
+    end
+
+    if Chest:IsA("BasePart") then
+
+        if Chest:FindFirstChildOfClass("TouchTransmitter")
+            or Chest:FindFirstChild("TouchInterest") then
+
+            return Chest
+        end
+
+        return Chest
+    end
+
+    if Chest:IsA("Model") then
+
+        local BestPart = nil
+
+        for _,obj in ipairs(Chest:GetDescendants()) do
+
+            if obj:IsA("BasePart") then
+
+                if obj:FindFirstChildOfClass("TouchTransmitter")
+                    or obj:FindFirstChild("TouchInterest") then
+
+                    return obj
+                end
+
+                if not BestPart then
+                    BestPart = obj
+                end
+            end
+        end
+
+        return BestPart
+    end
+
+    return nil
+end
+
+-- =========================================================
+-- CHECK CHEST
+-- =========================================================
+
+local function IsChestObject(obj)
+
+    if not obj then
+        return false
+    end
+
+    local Name = string.lower(obj.Name)
+
+    if Name == "chest"
+    or Name == "chest1"
+    or Name == "chest2"
+    or Name == "chest3"
+    or Name == "chest4"
+    or string.find(Name,"chest") then
+
+        if obj:IsA("BasePart") or obj:IsA("Model") then
+            return true
+        end
+    end
+
+    return false
+end
+
+-- =========================================================
+-- GET ALL CHESTS
+-- =========================================================
+
+local function GetAllChests()
+
+    local Chests = {}
+    local Added = {}
+
+    -- TAGGED CHEST
+    pcall(function()
+
+        local CollectionService = game:GetService("CollectionService")
+
+        for _,obj in ipairs(CollectionService:GetTagged("_ChestTagged")) do
+
+            if obj and obj.Parent then
+
+                if not Added[obj] then
+
+                    Added[obj] = true
+                    table.insert(Chests,obj)
+
+                end
+            end
+        end
+
+    end)
+
+    -- WORKSPACE CHESTS
+    for _,obj in ipairs(workspace:GetDescendants()) do
+
+        if IsChestObject(obj) then
+
+            if not Added[obj] then
+
+                Added[obj] = true
+                table.insert(Chests,obj)
+
+            end
+        end
+
+    end
+
+    CountLabel.Text = "Chest: "..#Chests
+
+    return Chests
+end
+
+-- =========================================================
+-- REMOVE DEAD CACHE
+-- =========================================================
+
+local function CleanCache()
+
+    for Chest,_ in pairs(VisitedChests) do
+
+        if not Chest or not Chest.Parent then
+            VisitedChests[Chest] = nil
+        end
+
+    end
+
+    for Chest,_ in pairs(FailedChests) do
+
+        if not Chest or not Chest.Parent then
+            FailedChests[Chest] = nil
+        end
+
+    end
+
+end
+
+-- =========================================================
+-- NEAREST CHEST
+-- =========================================================
+
+local function GetNearestChest()
+
+    CleanCache()
+
+    local Root = GetRoot()
+
+    if not Root then
+        return nil
+    end
+
+    local Chests = GetAllChests()
+
+    local Nearest = nil
+    local Distance = math.huge
+
+    for _,Chest in ipairs(Chests) do
+
+        if Chest
+        and Chest.Parent
+        and not VisitedChests[Chest]
+        and not FailedChests[Chest] then
+
+            local Pos = GetChestPosition(Chest)
+
+            if Pos then
+
+                local Dist = (Root.Position - Pos).Magnitude
+
+                if Dist < Distance then
+
+                    Distance = Dist
+                    Nearest = Chest
+
+                end
+            end
+        end
+    end
+
+    return Nearest
+end
+
+-- =========================================================
+-- TOUCH CHEST
+-- =========================================================
+
+local function TouchChest(Chest)
+
+    local Root = GetRoot()
+
+    if not Root then
+        return
+    end
+
+    local TouchPart = GetTouchPart(Chest)
+
+    if not TouchPart then
+        return
+    end
+
+    pcall(function()
+
+        if firetouchinterest then
+
+            firetouchinterest(Root,TouchPart,0)
+            task.wait(0.15)
+            firetouchinterest(Root,TouchPart,1)
+
+        end
+
+    end)
+
+    pcall(function()
+
+        if firesignal then
+            firesignal(TouchPart.Touched,Root)
+        end
+
+    end)
+
+end
+
+-- =========================================================
+-- STOP TWEEN
+-- =========================================================
+
+local function StopTween()
+
+    if CurrentTween then
+
+        pcall(function()
+            CurrentTween:Cancel()
+        end)
+
+        CurrentTween = nil
+
+    end
+end
+
+-- =========================================================
+-- SMOOTH FLY
+-- =========================================================
+
+local function FlyToChest(Chest)
+
+    if not Chest or not Chest.Parent then
+        return false
+    end
+
+    local Root = GetRoot()
+
+    if not Root then
+        return false
+    end
+
+    local TargetPosition = GetChestPosition(Chest)
+
+    if not TargetPosition then
+        return false
+    end
+
+    -- BAY CAO HƠN RƯƠNG MỘT CHÚT
+    TargetPosition = TargetPosition + Vector3.new(0,HEIGHT_OFFSET,0)
+
+    local Distance = (Root.Position - TargetPosition).Magnitude
+
+    if Distance < 6 then
+
+        TouchChest(Chest)
+        return true
+
+    end
+
+    Status.Text = "Status: FLY → "..Chest.Name
+
+    StopTween()
+
+    -- TÍNH THỜI GIAN BAY
+    local TravelTime = math.clamp(Distance / SPEED,0.35,8)
+
+    local TargetCFrame =
+        CFrame.new(TargetPosition) *
+        CFrame.Angles(0,math.rad(Root.Orientation.Y),0)
+
+    local TweenInfoData = TweenInfo.new(
+        TravelTime,
+        Enum.EasingStyle.Linear,
+        Enum.EasingDirection.Out
+    )
+
+    CurrentTween = TweenService:Create(
+        Root,
+        TweenInfoData,
+        {
+            CFrame = TargetCFrame
+        }
+    )
+
+    CurrentTween:Play()
+
+    local Completed = false
+
+    local Connection
+
+    Connection = CurrentTween.Completed:Connect(function()
+
+        Completed = true
+
+        if Connection then
+            Connection:Disconnect()
+        end
+
+    end)
+
+    local StartTime = tick()
+
+    while not Completed
+    and AutoChest
+    and not getgenv().ATRAS_BINN_STOPPED do
+
+        if not Root.Parent then
+            break
+        end
+
+        -- TIMEOUT
+        if tick() - StartTime > TravelTime + 3 then
+            break
+        end
+
+        task.wait()
+    end
+
+    if Connection then
+        Connection:Disconnect()
+    end
+
+    StopTween()
+
+    if not AutoChest then
+        return false
+    end
+
+    -- ĐẾN RƯƠNG
+    task.wait(0.1)
+
+    TouchChest(Chest)
+
+    task.wait(0.45)
+
+    return true
+end
+
+-- =========================================================
+-- WAIT CHEST DISAPPEAR / CHANGE
+-- =========================================================
+
+local function WaitAfterChest(Chest)
+
+    local Start = tick()
+
+    while AutoChest
+    and tick() - Start < 2 do
+
+        if not Chest or not Chest.Parent then
+            break
+        end
+
+        task.wait(0.15)
+
+    end
+
+end
+
+-- =========================================================
+-- AUTO CHEST
+-- =========================================================
+
+local function StartAutoChest()
+
+    task.spawn(function()
+
+        while AutoChest
+        and not getgenv().ATRAS_BINN_STOPPED do
+
+            local Character = GetCharacter()
+
+            if not Character then
+                task.wait(1)
+                continue
+            end
+
+            local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+
+            if Humanoid and Humanoid.Health <= 0 then
+
+                Status.Text = "Status: WAIT RESPAWN"
+
+                task.wait(2)
+
+                continue
+            end
+
+            -- TÌM RƯƠNG
+            local Chest = GetNearestChest()
+
+            if not Chest then
+
+                Status.Text = "Status: SCANNING..."
+
+                -- Nếu tất cả đã visited, reset sau khi không còn chest mới
+                local FoundAny = false
+
+                for _,obj in ipairs(GetAllChests()) do
+
+                    if obj and obj.Parent then
+                        FoundAny = true
+                        break
+                    end
+
+                end
+
+                if FoundAny then
+
+                    -- cho server thời gian spawn/chest thay đổi
+                    task.wait(1)
+
+                else
+
+                    task.wait(2)
+
+                end
+
+                continue
+            end
+
+            CurrentTarget = Chest
+
+            -- ĐÁNH DẤU TRƯỚC KHI CHẠY
+            -- để không quay lại cùng rương
+            VisitedChests[Chest] = true
+
+            local Success = FlyToChest(Chest)
+
+            CurrentTarget = nil
+
+            if Success then
+
+                Status.Text = "Status: COLLECTED ✓"
+
+                WaitAfterChest(Chest)
+
+            else
+
+                FailedChests[Chest] = true
+
+                Status.Text = "Status: SKIP → "..Chest.Name
+
+                task.wait(0.3)
+
+            end
+
+            task.wait(0.15)
+        end
+
+    end)
+
+end
+
+-- =========================================================
+-- AUTO CHEST TOGGLE
+-- =========================================================
+
+ChestButton.MouseButton1Click:Connect(function()
+
+    AutoChest = not AutoChest
+
+    if AutoChest then
+
+        ChestButton.Text = "AUTO CHEST : ON"
+        ChestButton.TextColor3 = Color3.fromRGB(0,255,120)
+
+        Status.Text = "Status: STARTING..."
+
+        VisitedChests = {}
+        FailedChests = {}
+
+        StartAutoChest()
+
+    else
+
+        ChestButton.Text = "AUTO CHEST : OFF"
+        ChestButton.TextColor3 = Color3.new(1,1,1)
+
+        Status.Text = "Status: STOPPED"
+
+        CurrentTarget = nil
+
+        StopTween()
+
+    end
+
+end)
+
+-- =========================================================
+-- CHARACTER RESPAWN
+-- =========================================================
+
+LocalPlayer.CharacterAdded:Connect(function()
+
+    CurrentTarget = nil
+
+    StopTween()
+
+    task.wait(1)
+
+    if AutoChest then
+        Status.Text = "Status: RESPAWN..."
+    end
+
+end)
+
+-- =========================================================
+-- RGB LOOP
+-- =========================================================
+
+task.spawn(function()
+
+    while not getgenv().ATRAS_BINN_STOPPED do
+
+        local Color = RGB()
+
+        pcall(function()
+            MainStroke.Color = Color
+            OpenStroke.Color = Color
+        end)
+
+        task.wait(0.03)
+
+    end
+
+end)
+
+-- =========================================================
+-- STOP FUNCTION
+-- =========================================================
+
+getgenv().ATRAS_BINN_STOP = function()
+
+    getgenv().ATRAS_BINN_STOPPED = true
+
+    AutoChest = false
+
+    StopTween()
+
+    pcall(function()
+        ScreenGui:Destroy()
+    end)
+
+end
+
+-- =========================================================
+-- LOAD
+-- =========================================================
+
+print("======================================")
+print("       ATRAS | BINN")
+print("       AUTO CHEST V5")
+print("       LOADED SUCCESSFULLY")
+print("======================================")
+
+Status.Text = "Status: READY"
